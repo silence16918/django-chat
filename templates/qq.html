@@ -1,0 +1,218 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <script type="text/javascript" src="{% static 'js/jquery.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/bootstrap.min.js' %}"></script>
+    <style>
+        .chat-box {
+            height: 500px;
+        }
+
+        .contact-list {
+            height: 100%;
+            border: 1px solid darkmagenta;
+            padding-top: 20px;
+        }
+
+        .dialog-box {
+            height: 100%;
+            border: 1px solid red;
+            padding: 0;
+        }
+
+        .dialog-box-head {
+            height: 10%;
+            background-color: #5bc0de;
+        }
+
+        .dialog-box-middle {
+            height: 70%;
+            overflow: auto;
+        }
+
+        .dialog-box-bottom {
+            height: 20%;
+        }
+
+        .dialog-box-bottom textarea {
+            width: 100%;
+            height: 100%;
+            resize: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Nav tabs -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="active"><a href="#contact" aria-controls="home" role="tab"
+                                                  data-toggle="tab">朋友</a></li>
+        <li role="presentation"><a href="#profile" aria-controls="profile" role="tab"
+                                   data-toggle="tab">{{ request.user.userprofile.nick }}</a></li>
+        <li role="presentation"><a href="{% url 'logout' %}">退出</a></li>
+    </ul>
+    <!-- Tab panes -->
+    <div class="tab-content">
+        <div role="tabpanel" class="tab-pane active" id="contact">
+            <div class="chat-box row">
+                <div class="contact-list col-md-2">
+                    <div class="list-group">
+                        {% for friend in request.user.userprofile.friends.all %}
+                            <a href="#" class="list-group-item">
+                                <span contact-id="{{ friend.id }}">{{ friend.nick }}</span>
+                                <span contact-id="{{ friend.id }}" class="badge hide"
+                                      style="background-color: red;">0</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="dialog-box col-md-10">
+                    <div class="dialog-box-head">
+                    </div>
+                    <div class="dialog-box-middle"></div>
+                    <div class="dialog-box-bottom">
+                        <textarea></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div role="tabpanel" class="tab-pane" id="profile">...</div>
+    </div>
+
+</div>
+<script type="text/javascript">
+
+    user_dict = {};
+
+    $(document).ready(function () {
+        //朋友点击高亮显示
+        $('.list-group a').click(function () {
+            $(this).addClass('active').siblings().removeClass('active');
+
+            var badge = $('span[contact-id]')[1]; //获取数字标签
+            $(badge).text(0);
+            $(badge).addClass('hide');
+
+            selectChat(this); //刷新头部朋友信息
+        });
+
+        //回车键盘点击事件把消息发送到聊天窗口中
+        $('textarea').keypress(function (e) {
+            if (e.which == 13) { //which获取键盘对应的ascii码(回车==13)
+                var chat_box = $('textarea');
+                var msg = chat_box.val(); //获取消息输入框中的内容
+                var msg_html = makeMsg(msg, new Date().toLocaleTimeString(), '{{ request.user.userprofile.nick }}', 'right'); //构造一条消息
+                chat_box.val(''); //清空消息输入框
+                //把消息追加到中间的聊天窗口中
+                $('.dialog-box-middle').append(msg_html);
+                //让消息滚动起来
+                $('.dialog-box-middle').stop().animate({scrollTop: $('.dialog-box-middle')[0].scrollHeight}, 1000);
+
+                //发起ajax请求 把消息发送到后台
+                sendMsg(msg);
+            }
+        });
+
+        //长轮询，获取消息
+        getMsg();
+    });
+
+    //生成聊天信息div的函数
+    function makeMsg(msg, time, user, lr) {
+        var msg_html = "<div align=" + lr + ">" +
+            "<span>" + time + "</span>" +
+            "<span>" + user + "</span>" +
+            "<p>" + msg + "</p>"
+            + "</div>";
+        return msg_html;
+    }
+
+    //刷新头部朋友信息
+    function selectChat(friend) {
+        //获取左侧朋友id 和name
+        var contact_id = $($(friend).find('span')[0]).attr('contact-id');
+        var contact_name = $($(friend).find('span')[0]).text();
+
+        //获取当前聊天对象id
+        var current_span = $('.dialog-box-head span');
+        var current_id = current_span.attr('contact-id');
+        sessionSwap(current_id, 'save'); //保存之前朋友会话
+        var dialog_html = sessionSwap(contact_id, 'get');//获取当前朋友会话
+
+        //读取完聊天内容再次滚动窗口
+        $('.dialog-box-middle').html(dialog_html);
+        $('.dialog-box-middle').stop().animate({scrollTop: $('.dialog-box-middle')[0].scrollHeight}, 1000);
+
+        //刷新头部联系人
+        var head_span = '<span contact-id="' + contact_id + '">' + contact_name + '</span>'; //自己组织头部联系人span
+        $('.dialog-box-head').html(head_span);
+
+    }
+
+    //发送消息函数
+    function sendMsg(msg) {
+        var head_span = $('.dialog-box-head span'); //朋友span
+        msg_dic = {
+            from_id: {{ request.user.userprofile.id }}, //登陆人id
+            to_id: $(head_span).attr('contact-id'),  //朋友id
+            msg: msg, //发送的消息
+            from_name: '{{ request.user.userprofile.nick }}' //登陆人昵称
+        };
+
+        // 发起一个ajax的post请求
+        $.post('{% url 'sendMsg' %}', {data: JSON.stringify(msg_dic)}, function (data) {   // stringify  把字典转成json
+
+        })
+
+    }
+
+    function getMsg() {
+        $.get('{% url 'getMsg' %}', {uid:{{ request.user.userprofile.id }}}, function (data) {
+            var head_span = $('.dialog-box-head span'); //获取头span
+            var current_id = $(head_span).attr('contact-id');  //当前选中朋友的id
+
+            data = JSON.parse(data); //把json 转换成js对象（字典）  [{from_id,to_id,msg,from.name,time},{},{}]
+            $.each(data, function (index, item) {  //遍历列表中的所有字典（消息）
+                if (current_id == item.from_id) {  //当前选中朋友id 是否等于消息来源id
+                    var msg_html = makeMsg(item.msg, item.time, item.from_name, 'left'); //创造消息html
+                    $('.dialog-box-middle').append(msg_html); //把消息追加到聊天窗口中
+                    //消息滚动起来
+                    $('.dialog-box-middle').stop().animate({scrollTop: $('.dialog-box-middle')[0].scrollHeight}, 1000);
+                }
+                else {
+                    //累计消息数字 并显示
+                    var badge = $('span[contact-id=' + item.from_id + ']')[1]; //获取数字标签
+                    $(badge).text(parseInt($(badge).text()) + 1).removeClass('hide'); // 消息数字+1
+
+                    var msg_html = makeMsg(item.msg, item.time, item.from_name, 'left'); //创造新消息html
+                    var old_html = sessionSwap(item.from_id, 'get'); //获取旧消息
+                    user_dict[item.from_id] = old_html + msg_html; //旧,新消息保存
+                }
+            });
+            getMsg();
+        });
+    }
+
+    //会话切换函数
+    function sessionSwap(uid, action) {  //p1 : 用户id   p2 行为（获取，保存）
+        var dialog_html = '';
+        if (action == 'get') { //获取
+            if (user_dict.hasOwnProperty(uid)) { //存在用户id  相当于python字典的has_key
+                dialog_html = user_dict[uid]; //返回现有用户id 的 会话内容
+            }
+            return dialog_html
+        }
+        else if (action == 'save') {  //保存
+            dialog_html = $('.dialog-box-middle').html(); //获取当前聊天窗口中的html
+            user_dict[uid] = dialog_html;  //存入全局用户字典
+        }
+    }
+
+</script>
+</body>
+</html>
