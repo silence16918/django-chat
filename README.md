@@ -1,14 +1,16 @@
 # django-chat
 
 ### A small django chat room
+<br/>
 
 ##### 1、简介: django+python3.6+mysql+pycharm
+<br/>
 
 ##### 2、主要功能实现:
-1,用户注册登录
-2,添加好友
-3,多人在线聊天
-
+1,用户注册登录<br/>
+2,ajax发送消息,长轮询接收消息<br/>
+3,队列queue存储消息<br/>
+<br/>
 
 ##### 3、项目目录结构：
 
